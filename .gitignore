@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Project specific
+temp_uploads/
+temp_outputs/
+models/*.onnx
+models/*.bin
+
+# IDEs
+.vscode/
+.idea/

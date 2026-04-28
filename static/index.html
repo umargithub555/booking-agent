@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuxeStay AI | Hotel Assistant</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <h1>LuxeStay<span>AI</span></h1>
+            <p>Your Premium Concierge</p>
+        </header>
+
+        <div class="chat-display" id="chatDisplay">
+            <div class="message system">
+                <p>Hello! I am your AI concierge. How can I help you today?</p>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="status" id="statusText">Ready to listen...</div>
+            <button id="recordBtn" class="record-btn">
+                <div class="mic-icon"></div>
+            </button>
+            <p class="hint">Click to speak</p>
+        </div>
+    </div>
+
+    <audio id="responseAudio" hidden></audio>
+
+    <script src="script.js"></script>
+</body>
+</html>
