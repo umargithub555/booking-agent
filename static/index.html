@@ -7,31 +7,43 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="glass-container">
         <header>
             <h1>LuxeStay<span>AI</span></h1>
-            <p>Your Premium Concierge</p>
+            <p class="tagline">Your Premium Concierge</p>
         </header>
 
         <div class="chat-display" id="chatDisplay">
             <div class="message system">
-                <p>Hello! I am your AI concierge. How can I help you today?</p>
+                <div class="avatar">A</div>
+                <p>Hello! I'm Aria, your personal concierge. How can I help you today?</p>
             </div>
         </div>
 
+        <!-- Live transcript while speaking -->
+        <div class="interim-bar" id="interimBar">
+            <span class="live-dot"></span>
+            <span id="interimText">Listening...</span>
+        </div>
+
         <div class="controls">
-            <div class="status" id="statusText">Ready to listen...</div>
-            <button id="recordBtn" class="record-btn">
-                <div class="mic-icon"></div>
+            <div class="status" id="statusText">Ready to listen</div>
+            <button id="recordBtn" class="record-btn" aria-label="Start recording">
+                <svg class="mic-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor"/>
+                    <path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <line x1="8" y1="22" x2="16" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <div class="ring ring1"></div>
+                <div class="ring ring2"></div>
             </button>
-            <p class="hint">Click to speak</p>
+            <p class="hint" id="hintText">Click to speak</p>
         </div>
     </div>
-
-    <audio id="responseAudio" hidden></audio>
 
     <script src="script.js"></script>
 </body>
