@@ -22,7 +22,7 @@ class TTSService:
             except ImportError:
                 print("⚠ kokoro-onnx not installed.")
 
-    def generate_audio_base64(self, text: str, voice="af_jessica") -> str | None:
+    def generate_audio_base64(self, text: str, voice="af_heart") -> str | None:
         """Generate audio for a sentence and return as base64-encoded WAV string."""
         self._lazy_init()
         if not self.kokoro:
