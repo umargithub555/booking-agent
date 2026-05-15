@@ -1,5 +1,6 @@
 import random
 import re
+import string
 import emoji
 import bcrypt
 from passlib.context import CryptContext
@@ -63,3 +64,8 @@ def generate_otp():
 
 def get_otp_expire_time(minutes=5):
     return datetime.now(timezone.utc) + timedelta(minutes=minutes)
+
+
+
+def generate_confirmation_code():
+    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))

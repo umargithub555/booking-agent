@@ -16,11 +16,17 @@ from app.services.llm_service import LLMService
 from app.services.tts_service import TTSService
 from app.utils.helper import hash_password, is_sentence_end, clean_for_tts
 from app.api.hotels import router as hotel_router
+from app.api.inventory import router as inventory_router
+from app.api.reservations import router as reservation_router
+from app.api.agent import router as agent_router
 from app.auth import registration
 
 
 app = FastAPI()
 app.include_router(hotel_router)
+app.include_router(inventory_router)
+app.include_router(reservation_router)
+app.include_router(agent_router)
 app.include_router(registration.router)
 
 stt = STTService()
