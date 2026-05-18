@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = Field(..., alias='DATABASE_NAME')
     DATABASE_URL: str = Field(..., alias='DATABASE_URL')
 
+    groq_api_key: str = Field(..., alias="GROQ_API_KEY")
+
 
     mail_username: str = Field(..., alias="MAIL_USERNAME")
     mail_password: str = Field(..., alias="MAIL_PASSWORD")
