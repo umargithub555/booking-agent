@@ -5,7 +5,7 @@ import json
 import asyncio
 from fastapi import Depends, FastAPI, HTTPException, UploadFile, File, status
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy import select
 from app.core.config import settings
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +87,8 @@ async def voice_stream(file: UploadFile = File(...)):
 
             # ── 2. Stream LLM + 3. TTS per sentence ─────────────────────────
             sentence_buffer = ""
-            async for token in llm.stream_response(text_input):
+            # async for token in llm.stream_response(text_input):
+            async for token in llm.stream_response_llama3_8b(text_input):
                 yield f"data: {json.dumps({'type': 'ai_token', 'token': token})}\n\n"
                 sentence_buffer += token
 
@@ -175,9 +176,9 @@ async def seed_admin(db: AsyncSession = Depends(get_db)):
 
 
 
-
-
-
+@app.get("/agent-ui", response_class=FileResponse)
+async def agent_ui():
+    return FileResponse("static/agent_test.html")
 
 
 
