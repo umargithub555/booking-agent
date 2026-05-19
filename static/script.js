@@ -109,6 +109,9 @@ recordBtn.addEventListener('click', async () => {
 
 async function startRecording() {
     try {
+        if (!window.isSecureContext) {
+            throw new Error("HTTPS (Secure Context) is required for microphone access. Please use the https:// version of your ngrok link.");
+        }
         ensureAudioCtx();
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
@@ -215,3 +218,21 @@ function addMessage(text, role) {
     chatDisplay.scrollTop = chatDisplay.scrollHeight;
     return wrapper;
 }
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (!window.isSecureContext) {
+        console.warn("LuxeStay warning: This page is not running in a secure context (HTTPS). Microphone access is disabled by the browser in unsecure contexts.");
+        const warningDiv = document.createElement('div');
+        warningDiv.style.background = 'rgba(244, 67, 54, 0.15)';
+        warningDiv.style.border = '1px solid rgba(244, 67, 54, 0.4)';
+        warningDiv.style.color = '#ff8a80';
+        warningDiv.style.padding = '12px 16px';
+        warningDiv.style.borderRadius = '12px';
+        warningDiv.style.marginBottom = '16px';
+        warningDiv.style.fontSize = '0.85rem';
+        warningDiv.style.textAlign = 'center';
+        warningDiv.style.lineHeight = '1.4';
+        warningDiv.innerHTML = `⚠️ <strong>Secure Context Required:</strong> Voice chat is disabled because this connection is not secure (HTTP). Please switch to the <strong>https://</strong> version of this ngrok link!`;
+        chatDisplay.insertBefore(warningDiv, chatDisplay.firstChild);
+    }
+});
