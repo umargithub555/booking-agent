@@ -30,3 +30,7 @@ class AgentState(TypedDict):
     # Completed booking result
     reservation_id: Optional[str]
     confirmation_code: Optional[str]
+
+    # Draft food order (dictionary of item name -> details like quantity, price)
+    draft_order: Optional[Dict]
+
