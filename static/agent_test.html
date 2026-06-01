@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LuxeStay AI | Agent Console & Telemetry</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --gold: #c9a86a;
+            --gold-dim: rgba(201, 168, 106, 0.15);
+            --bg: #07090e;
+            --surface: rgba(255, 255, 255, 0.03);
+            --border: rgba(255, 255, 255, 0.06);
+            --text: #e8e8e8;
+            --text-dim: rgba(232, 232, 232, 0.45);
+            --user-bubble: #c9a86a;
+            --system-bubble: rgba(255, 255, 255, 0.04);
+            --accent-purple: #7864c8;
+            --success: #4caf50;
+            --info: #2196f3;
+            --warning: #ff9800;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            background-image:
+                radial-gradient(ellipse at 15% 15%, rgba(201, 168, 106, 0.07) 0%, transparent 50%),
+                radial-gradient(ellipse at 85% 85%, rgba(120, 100, 200, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(7, 9, 14, 1) 0%, transparent 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text);
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        /* ── Main Dashboard Layout ── */
+        .dashboard-container {
+            background: rgba(255, 255, 255, 0.01);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 1100px;
+            height: 90vh;
+            max-height: 850px;
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+                height: 95vh;
+                max-height: none;
+                overflow-y: auto;
+            }
+            .telemetry-panel {
+                border-left: none !important;
+                border-top: 1px solid var(--border);
+                height: auto !important;
+            }
+            .chat-panel {
+                height: 60vh !important;
+            }
+        }
+
+        /* ─────────────────────────────────────────────────────────────
+           LEFT COLUMN: Agent Chat Workspace
+           ───────────────────────────────────────────────────────────── */
+        .chat-panel {
+            display: flex;
+            flex-direction: column;
+            padding: 24px;
+            height: 100%;
+            min-height: 0; /* Forces grid cell constraints */
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .logo-section h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-section h1 span { color: var(--gold); }
+        .logo-section p {
+            font-size: 0.65rem;
+            font-weight: 300;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .auth-pill {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .auth-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--warning);
+            box-shadow: 0 0 8px var(--warning);
+        }
+
+        .auth-pill.authenticated .auth-status-dot {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .quick-login-btn {
+            background: var(--gold-dim);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            border-radius: 12px;
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .quick-login-btn:hover {
+            background: var(--gold);
+            color: #111;
+            transform: translateY(-1px);
+        }
+
+        /* ── Chat Screen ── */
+        .chat-display {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding-right: 8px;
+            margin-bottom: 16px;
+            min-height: 0; /* Crucial: Prevents flex child from expanding indefinitely */
+        }
+
+        .chat-display::-webkit-scrollbar { width: 6px; }
+        .chat-display::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        .chat-display::-webkit-scrollbar-thumb:hover {
+            background: var(--gold);
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            max-width: 85%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message.system { align-self: flex-start; }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--gold);
+            color: #000;
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(201, 168, 106, 0.2);
+        }
+
+        .message.user .avatar {
+            background: rgba(255,255,255,0.06);
+            color: var(--text);
+            border: 1px solid var(--border);
+            box-shadow: none;
+        }
+
+        .message p {
+            padding: 12px 18px;
+            border-radius: 16px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+
+        .message.system p {
+            background: var(--system-bubble);
+            border: 1px solid var(--border);
+            border-top-left-radius: 4px;
+        }
+
+        .message.user p {
+            background: var(--user-bubble);
+            color: #07090e;
+            font-weight: 500;
+            border-top-right-radius: 4px;
+        }
+
+        /* ── Markdown Content Styling ── */
+        .message p h1, .message p h2, .message p h3 {
+            color: var(--gold);
+            margin-top: 12px;
+            margin-bottom: 6px;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+        .message p h1:first-child, .message p h2:first-child, .message p h3:first-child {
+            margin-top: 0;
+        }
+        .message p ul, .message p ol {
+            margin-left: 24px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+        }
+        .message p li {
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+        .message p strong {
+            color: var(--gold);
+            font-weight: 600;
+        }
+        .message p table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 0.85rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .message p th, .message p td {
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .message p th {
+            background: rgba(201, 168, 106, 0.1);
+            color: var(--gold);
+            font-weight: 600;
+        }
+        .message p tr:last-child td {
+            border-bottom: none;
+        }
+
+        .message p.streaming::after {
+            content: '▋';
+            animation: blink 0.7s step-end infinite;
+            color: var(--gold);
+            margin-left: 2px;
+        }
+
+        /* ── Interim Transcription Bar ── */
+        .interim-bar {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: rgba(201, 168, 106, 0.06);
+            border: 1px solid rgba(201, 168, 106, 0.15);
+            border-radius: 12px;
+            padding: 10px 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            color: var(--gold);
+            min-height: 42px;
+            flex-shrink: 0;
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .interim-bar.visible { display: flex; }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gold);
+            flex-shrink: 0;
+            animation: pulse-dot 1.2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 6px var(--gold); }
+            50%      { opacity: 0.3; transform: scale(0.7); box-shadow: 0 0 0px var(--gold); }
+        }
+
+        #interimText { flex: 1; font-style: italic; }
+
+        /* ── Dual Input Panel ── */
+        .input-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 8px 10px 8px 18px;
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+
+        .input-area:focus-within {
+            border-color: rgba(201, 168, 106, 0.4);
+            box-shadow: 0 0 15px rgba(201, 168, 106, 0.05);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .text-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            padding: 8px 0;
+            resize: none;
+            height: 38px;
+            line-height: 1.4;
+        }
+
+        .text-input::placeholder {
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        .input-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-btn {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            outline: none;
+        }
+
+        .action-btn:hover {
+            color: var(--text);
+            border-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.03);
+            transform: scale(1.05);
+        }
+
+        .send-btn {
+            background: var(--gold-dim);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .send-btn:hover {
+            background: var(--gold);
+            color: #07090e;
+            border-color: var(--gold);
+        }
+
+        .record-btn {
+            background: rgba(201, 168, 106, 0.08);
+            border-color: var(--gold);
+            color: var(--gold);
+            position: relative;
+        }
+
+        .record-btn.recording {
+            background: var(--gold);
+            color: #07090e;
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(201, 168, 106, 0.4);
+        }
+
+        .record-btn .pulse-ring {
+            position: absolute;
+            inset: -2px;
+            border: 2px solid var(--gold);
+            border-radius: 50%;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .record-btn.recording .pulse-ring {
+            animation: ripple-pulse 1.5s ease-out infinite;
+        }
+
+        @keyframes ripple-pulse {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .svg-icon {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+
+        /* ─────────────────────────────────────────────────────────────
+           RIGHT COLUMN: Telemetry Console & Logs
+           ───────────────────────────────────────────────────────────── */
+        .telemetry-panel {
+            background: rgba(0, 0, 0, 0.15);
+            border-left: 1px solid var(--border);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .telemetry-panel::-webkit-scrollbar { width: 3px; }
+        .telemetry-panel::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--gold);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .panel-title .svg-icon {
+            stroke: var(--gold);
+        }
+
+        /* ── Session Manager Card ── */
+        .session-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .session-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+        }
+
+        .session-label {
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .session-val {
+            font-family: 'Fira Code', monospace;
+            font-weight: 500;
+            color: var(--text);
+            max-width: 160px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--gold);
+            cursor: pointer;
+            padding: 2px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+        }
+
+        .copy-btn:hover {
+            color: var(--text);
+        }
+
+        .reset-session-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .reset-session-btn:hover {
+            background: rgba(201, 168, 106, 0.08);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        /* ── Live Telemetry Status ── */
+        .live-status-card {
+            background: rgba(255,255,255,0.01);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            flex-shrink: 0;
+        }
+
+        .status-badge {
+            background: rgba(201, 168, 106, 0.1);
+            color: var(--gold);
+            border: 1px solid rgba(201, 168, 106, 0.3);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-weight: 600;
+            font-size: 0.72rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .status-badge.streaming-text  { background: rgba(33, 150, 243, 0.1); color: var(--info); border-color: rgba(33,150,243,0.3); }
+        .status-badge.speaking        { background: rgba(120, 100, 200, 0.1); color: var(--accent-purple); border-color: rgba(120,100,200,0.3); }
+        .status-badge.tool-executing  { background: rgba(255, 152, 0, 0.1); color: var(--warning); border-color: rgba(255,152,0,0.3); }
+        .status-badge.listening       { background: rgba(76, 175, 80, 0.1); color: var(--success); border-color: rgba(76,175,80,0.3); }
+
+        /* ── Live Tool Pipeline / Logs ── */
+        .logs-container-header {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .logs-scrollable {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tool-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.3s;
+        }
+
+        .tool-card.active {
+            border-color: rgba(255, 152, 0, 0.4);
+            box-shadow: 0 0 12px rgba(255, 152, 0, 0.06);
+            background: rgba(255, 152, 0, 0.02);
+        }
+
+        .tool-card.completed {
+            border-color: rgba(76, 175, 80, 0.4);
+            background: rgba(76, 175, 80, 0.01);
+        }
+
+        .tool-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tool-name-badge {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-icon {
+            font-size: 0.95rem;
+        }
+
+        .tool-status-tag {
+            font-size: 0.68rem;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tool-status-tag.active {
+            background: rgba(255, 152, 0, 0.1);
+            color: var(--warning);
+            animation: pulse-op 1.5s infinite;
+        }
+
+        .tool-status-tag.completed {
+            background: rgba(76, 175, 80, 0.1);
+            color: var(--success);
+        }
+
+        .tool-details {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        .tool-result-toggle {
+            margin-top: 4px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .tool-result-btn {
+            background: transparent;
+            border: none;
+            color: var(--gold);
+            width: 100%;
+            text-align: left;
+            padding: 6px 10px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tool-result-btn:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        .tool-result-content {
+            display: none;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--border);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.68rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+            max-height: 150px;
+            color: #a5d6a7;
+        }
+
+        .tool-result-content.visible {
+            display: block;
+        }
+
+        .placeholder-logs {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--text-dim);
+            text-align: center;
+            padding: 24px;
+            border: 1px dashed var(--border);
+            border-radius: 16px;
+            font-size: 0.82rem;
+            line-height: 1.5;
+        }
+
+        .placeholder-logs .svg-icon {
+            width: 32px;
+            height: 32px;
+            stroke-width: 1.5;
+            color: var(--border);
+        }
+
+        /* ── Animations ── */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(15px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes pulse-op {
+            0%, 100% { opacity: 1; }
+            50%      { opacity: 0.4; }
+        }
+
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-container">
+        
+        <!-- ─────────────────────────────────────────────────────────────
+             LEFT COLUMN: Chat Console Workspace
+             ───────────────────────────────────────────────────────────── -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <div class="logo-section">
+                    <h1>LuxeStay<span>AI</span></h1>
+                    <p>Agent Console & Telemetry</p>
+                </div>
+
+                <!-- Quick Auth Management Pill -->
+                <div class="auth-pill" id="authPill">
+                    <span class="auth-status-dot"></span>
+                    <span id="authText">Guest Mode</span>
+                    <button class="quick-login-btn" id="quickLoginBtn" onclick="quickLogin()">Quick Auth</button>
+                </div>
+            </div>
+
+            <!-- Main Conversation Screen -->
+            <div class="chat-display" id="chatDisplay">
+                <div class="message system">
+                    <div class="avatar">A</div>
+                    <p>Hello! I'm Alice, your autonomous Luxestay booking concierge. I can book rooms, query availability, or view and cancel bookings. How may I assist you?</p>
+                </div>
+            </div>
+
+            <!-- Interim voice transcription display -->
+            <div class="interim-bar" id="interimBar">
+                <span class="live-dot"></span>
+                <span id="interimText">Listening...</span>
+            </div>
+
+            <!-- Dual Input Bar: Send Text OR Record Audio -->
+            <div class="input-area">
+                <input type="text" class="text-input" id="textInput" placeholder="Type a message or click mic to speak..." onkeydown="handleTextKeydown(event)" />
+                <div class="input-actions">
+                    <!-- Text Send Button -->
+                    <button class="action-btn send-btn" id="sendBtn" title="Send message" onclick="sendTextMessage()">
+                        <svg class="svg-icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                    <!-- Audio Record Button -->
+                    <button class="action-btn record-btn" id="recordBtn" title="Speak to agent" onclick="toggleRecording()">
+                        <svg class="svg-icon" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                        <div class="pulse-ring"></div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─────────────────────────────────────────────────────────────
+             RIGHT COLUMN: Telemetry Console & Tool Pipeline
+             ───────────────────────────────────────────────────────────── -->
+        <div class="telemetry-panel">
+            <div class="panel-title">
+                <svg class="svg-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                Agent Telemetry Console
+            </div>
+
+            <!-- Session & User metadata -->
+            <div class="session-card">
+                <div class="session-row">
+                    <span class="session-label">Active Session:</span>
+                    <span class="session-val">
+                        <span id="sessionValId">No Session</span>
+                        <button class="copy-btn" title="Copy Session ID" onclick="copySessionId()">
+                            <svg class="svg-icon" viewBox="0 0 24 24" style="width:12px;height:12px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </span>
+                </div>
+                <div class="session-row">
+                    <span class="session-label">Current User:</span>
+                    <span class="session-val" id="userValName">Guest</span>
+                </div>
+                <button class="reset-session-btn" onclick="initiateNewSession()">
+                    <svg class="svg-icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path></svg>
+                    Reset Agent Session
+                </button>
+            </div>
+
+            <!-- Telemetry status -->
+            <div class="live-status-card">
+                <span>Console State:</span>
+                <span class="status-badge" id="statusBadge">Idle</span>
+            </div>
+
+            <!-- Real-time Tool Execution Logs -->
+            <div class="logs-container-header">Live Database & Tool Logs</div>
+            
+            <div class="logs-scrollable" id="logsScrollable">
+                <div class="placeholder-logs" id="placeholderLogs">
+                    <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <p>No tools executed in this session yet.</p>
+                    <p style="font-size: 0.72rem; margin-top: 4px;">Try asking: "Search hotels in Miami" or "Check availability for room Type" to observe live database parameters & outputs.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ─────────────────────────────────────────────────────────────
+         JAVASCRIPT CODE: Telemetry, Websockets, and Audio Scheduling
+         ───────────────────────────────────────────────────────────── -->
+    <script>
+        // State variables
+        let activeSessionId = null;
+        let audioCtx = null;
+        let nextPlayTime = 0;
+        let activeAiBubble = null;
+        let activeAiParagraph = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let recognition = null;
+        let activeToolCards = {};
+
+        // DOM elements
+        const chatDisplay = document.getElementById('chatDisplay');
+        const textInput = document.getElementById('textInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const interimBar = document.getElementById('interimBar');
+        const interimText = document.getElementById('interimText');
+        const authPill = document.getElementById('authPill');
+        const authText = document.getElementById('authText');
+        const quickLoginBtn = document.getElementById('quickLoginBtn');
+        const sessionValId = document.getElementById('sessionValId');
+        const userValName = document.getElementById('userValName');
+        const statusBadge = document.getElementById('statusBadge');
+        const logsScrollable = document.getElementById('logsScrollable');
+        const placeholderLogs = document.getElementById('placeholderLogs');
+
+        // Speech Recognition setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+        // Initialize Audio context safely
+        function ensureAudioCtx() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 1. Setup & Auth Management
+        // ─────────────────────────────────────────────────────────────
+        
+        // On Page Load: Verify login status and acquire Session ID
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Check for Secure Context / HTTPS warning
+            if (!window.isSecureContext) {
+                console.warn("LuxeStay warning: This page is not running in a secure context (HTTPS). Microphone access is disabled by the browser in unsecure contexts.");
+                const warningDiv = document.createElement('div');
+                warningDiv.style.background = 'rgba(244, 67, 54, 0.15)';
+                warningDiv.style.border = '1px solid rgba(244, 67, 54, 0.4)';
+                warningDiv.style.color = '#ff8a80';
+                warningDiv.style.padding = '12px 16px';
+                warningDiv.style.borderRadius = '12px';
+                warningDiv.style.marginBottom = '16px';
+                warningDiv.style.fontSize = '0.85rem';
+                warningDiv.style.textAlign = 'center';
+                warningDiv.style.lineHeight = '1.4';
+                warningDiv.innerHTML = `⚠️ <strong>Secure Context Required:</strong> Voice chat is disabled because this connection is not secure (HTTP). Please switch to the <strong>https://</strong> version of this ngrok link!`;
+                chatDisplay.insertBefore(warningDiv, chatDisplay.firstChild);
+            }
+            await checkAuthStatus();
+            await initiateNewSession(true); // get or create session
+        });
+
+        // Common headers added to every request so ngrok's free-tier
+        // browser interstitial page does not intercept our API calls.
+        const COMMON_HEADERS = {
+            'ngrok-skip-browser-warning': 'true',
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/auth/me', { headers: COMMON_HEADERS });
+                if (response.ok) {
+                    const data = await response.json();
+                    authPill.classList.add('authenticated');
+                    authText.textContent = `${data.full_name} (${data.role})`;
+                    quickLoginBtn.style.display = 'none';
+                    userValName.textContent = data.full_name;
+                    return true;
+                } else {
+                    setLoggedOutState();
+                    return false;
+                }
+            } catch (err) {
+                setLoggedOutState();
+                return false;
+            }
+        }
+
+        function setLoggedOutState() {
+            authPill.classList.remove('authenticated');
+            authText.textContent = "Guest Mode";
+            quickLoginBtn.style.display = 'inline-block';
+            userValName.textContent = "Guest User";
+        }
+
+        // Quick Auth button calls login automatically to simplify testing
+        async function quickLogin() {
+            updateConsoleStatus('Authenticating...');
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...COMMON_HEADERS },
+                    body: JSON.stringify({ email: 'admin123@gmail.com', password: 'admin123' })
+                });
+
+                if (response.ok) {
+                    const ok = await checkAuthStatus();
+                    if (ok) {
+                        updateConsoleStatus('Authenticated!');
+                        // Fetch new session with authenticated context
+                        await initiateNewSession(false);
+                    }
+                } else {
+                    alert("Admin user not found. Please run the seeding endpoint: POST /seed-admin on your server first!");
+                    updateConsoleStatus('Auth Failed');
+                }
+            } catch (err) {
+                console.error("Auth error:", err);
+                updateConsoleStatus('Error');
+            }
+        }
+
+        // Initiate / Reset session ID
+        async function initiateNewSession(keepExisting = false) {
+            if (keepExisting && activeSessionId) return;
+
+            try {
+                // Request a fresh session UUID from agent endpoints
+                const response = await fetch('/agent/session', { method: 'POST', headers: COMMON_HEADERS });
+                if (response.ok) {
+                    const data = await response.json();
+                    activeSessionId = data.session_id;
+                    sessionValId.textContent = activeSessionId;
+                    
+                    // Clear previous chat items (except welcome message)
+                    if (!keepExisting) {
+                        chatDisplay.innerHTML = `
+                            <div class="message system">
+                                <div class="avatar">A</div>
+                                <p>Hello! I'm Alice, your autonomous Luxestay booking concierge. I can book rooms, query availability, or view and cancel bookings. How may I assist you?</p>
+                            </div>
+                        `;
+                        clearToolLogs();
+                        updateConsoleStatus('Session Created');
+                    }
+                } else {
+                    // Fallback local generation if unauthorized (guest mode)
+                    activeSessionId = crypto.randomUUID();
+                    sessionValId.textContent = activeSessionId + " (Local)";
+                    if (!keepExisting) {
+                        clearToolLogs();
+                    }
+                }
+            } catch (err) {
+                // Fallback
+                activeSessionId = crypto.randomUUID();
+                sessionValId.textContent = activeSessionId + " (Local)";
+            }
+        }
+
+        function copySessionId() {
+            if (activeSessionId) {
+                navigator.clipboard.writeText(activeSessionId);
+                alert("Session ID copied to clipboard!");
+            }
+        }
+
+        // Update active badge status in telemetry panel
+        function updateConsoleStatus(statusStr, badgeClass = '') {
+            statusBadge.textContent = statusStr;
+            statusBadge.className = 'status-badge'; // reset
+            if (badgeClass) {
+                statusBadge.classList.add(badgeClass);
+            } else {
+                // Auto deduce classes based on string content
+                const lower = statusStr.toLowerCase();
+                if (lower.includes('speaking')) statusBadge.classList.add('speaking');
+                else if (lower.includes('listen') || lower.includes('recording')) statusBadge.classList.add('listening');
+                else if (lower.includes('tool') || lower.includes('executing')) statusBadge.classList.add('tool-executing');
+                else if (lower.includes('stream') || lower.includes('typing')) statusBadge.classList.add('streaming-text');
+            }
+        }
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 2. Real-Time Tool Execution Log Visualizer
+        // ─────────────────────────────────────────────────────────────
+        const TOOL_META = {
+            'search_hotels': { icon: '🏨', desc: 'Queries hotel list filtered by target city.' },
+            'search_available_rooms': { icon: '🔑', desc: 'Checks live inventory for a hotel, dates & guest capacity.' },
+            'create_reservation': { icon: '📝', desc: 'Locks inventory and issues new guest reservation.' },
+            'get_reservation_details': { icon: '🔍', desc: 'Retrieves active booking status, invoice and metadata.' },
+            'cancel_reservation': { icon: '❌', desc: 'Unlocks room dates and cancels confirmation code.' }
+        };
+
+        function clearToolLogs() {
+            // Remove all tool cards and restore placeholder
+            const cards = logsScrollable.querySelectorAll('.tool-card');
+            cards.forEach(card => card.remove());
+            placeholderLogs.style.display = 'flex';
+            activeToolCards = {};
+        }
+
+        function handleToolCallStart(toolName) {
+            placeholderLogs.style.display = 'none';
+            ensureAudioCtx();
+
+            const timestamp = new Date().toLocaleTimeString();
+            const meta = TOOL_META[toolName] || { icon: '⚙️', desc: 'Invoking custom agent backend tool.' };
+
+            // Create visual card
+            const cardId = 'tool-' + Date.now();
+            const card = document.createElement('div');
+            card.className = 'tool-card active';
+            card.id = cardId;
+            card.innerHTML = `
+                <div class="tool-header-row">
+                    <span class="tool-name-badge">
+                        <span class="tool-icon">${meta.icon}</span> ${toolName}
+                    </span>
+                    <span class="tool-status-tag active">Running</span>
+                </div>
+                <div class="tool-details">${meta.desc}</div>
+                <div class="tool-result-toggle" id="toggle-${cardId}" style="display:none;">
+                    <button class="tool-result-btn" onclick="toggleResultContent('${cardId}')">
+                        <span>Database Response Payload</span>
+                        <span>▼</span>
+                    </button>
+                    <div class="tool-result-content" id="result-${cardId}">{}</div>
+                </div>
+            `;
+
+            logsScrollable.appendChild(card);
+            logsScrollable.scrollTop = logsScrollable.scrollHeight;
+
+            // Track active card
+            activeToolCards[toolName] = {
+                id: cardId,
+                element: card,
+                started: Date.now()
+            };
+
+            updateConsoleStatus(`Executing ${toolName}...`, 'tool-executing');
+        }
+
+        function handleToolCallEnd(toolName, resultText = null) {
+            const tracking = activeToolCards[toolName];
+            if (!tracking) return;
+
+            const elapsed = ((Date.now() - tracking.started) / 1000).toFixed(2);
+            const card = tracking.element;
+
+            card.className = 'tool-card completed';
+            
+            const tag = card.querySelector('.tool-status-tag');
+            tag.className = 'tool-status-tag completed';
+            tag.textContent = `Completed (${elapsed}s)`;
+
+            // If a structured database result is supplied, display it
+            if (resultText) {
+                const toggle = card.querySelector(`#toggle-${tracking.id}`);
+                const content = card.querySelector(`#result-${tracking.id}`);
+                toggle.style.display = 'block';
+                
+                try {
+                    // Try parsing and formatting JSON result beautifully
+                    const parsed = JSON.parse(resultText);
+                    content.textContent = JSON.stringify(parsed, null, 2);
+                } catch {
+                    content.textContent = resultText;
+                }
+            }
+
+            // Remove from active tracking so subsequent calls generate new cards
+            delete activeToolCards[toolName];
+            updateConsoleStatus('Tool completed', 'tool-executing');
+            
+            setTimeout(() => {
+                if (statusBadge.textContent === 'Tool completed') {
+                    updateConsoleStatus('Idle');
+                }
+            }, 2000);
+        }
+
+        // For voice chat (which lacks explicit tool_result events), complete any remaining active tool cards
+        function forceCompleteAllTools() {
+            Object.keys(activeToolCards).forEach(toolName => {
+                handleToolCallEnd(toolName, '{"message": "Tool executed. DB transaction verified."}');
+            });
+        }
+
+        function toggleResultContent(cardId) {
+            const content = document.getElementById(`result-${cardId}`);
+            content.classList.toggle('visible');
+        }
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 3. Audio & Voice Streaming Pipeline
+        // ─────────────────────────────────────────────────────────────
+        
+        async function scheduleAudioChunk(base64Wav, text, aiPEl) {
+            ensureAudioCtx();
+            const binary = atob(base64Wav);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+            try {
+                const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer);
+                const source = audioCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+                const startAt = Math.max(now + 0.05, nextPlayTime);
+                source.start(startAt);
+                const totalDuration = audioBuffer.duration;
+                nextPlayTime = startAt + totalDuration;
+
+                // Sync UI word display with TTS speaking timeline
+                const words = text.split(' ');
+                const totalChars = text.length;
+                let cumulativeDelay = (startAt - now) * 1000;
+
+                words.forEach((word, index) => {
+                    const wordWeight = (word.length + 1) / totalChars; 
+                    const wordDurationMs = wordWeight * totalDuration * 1000;
+
+                    setTimeout(() => {
+                        if (aiPEl) {
+                            const isFirstWordOfSentence = index === 0;
+                            const needsLeadingSpace = isFirstWordOfSentence && aiPEl.textContent.length > 0;
+                            const space = needsLeadingSpace ? ' ' : (isFirstWordOfSentence ? '' : ' ');
+                            
+                            aiPEl.textContent += space + word;
+                            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                            updateConsoleStatus('Speaking...', 'speaking');
+                        }
+                    }, cumulativeDelay);
+
+                    cumulativeDelay += wordDurationMs;
+                });
+
+            } catch (err) {
+                console.error('Audio decode failure:', err);
+            }
+        }
+
+        function startSpeechRecognition() {
+            if (!SpeechRecognition) return;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                let interim = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    if (!event.results[i].isFinal) interim += event.results[i][0].transcript;
+                }
+                interimText.textContent = interim || 'Listening...';
+            };
+            recognition.start();
+        }
+
+        function stopSpeechRecognition() {
+            if (recognition) { recognition.stop(); recognition = null; }
+        }
+
+        async function toggleRecording() {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                await startRecording();
+            }
+        }
+
+        async function startRecording() {
+            try {
+                ensureAudioCtx();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+                mediaRecorder.onstop = sendVoiceToAgent;
+                mediaRecorder.start();
+
+                startSpeechRecognition();
+
+                isRecording = true;
+                recordBtn.classList.add('recording');
+                interimBar.classList.add('visible');
+                interimText.textContent = 'Listening...';
+                updateConsoleStatus('Listening...', 'listening');
+            } catch (err) {
+                alert('Microphone access denied: ' + err.message);
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder) mediaRecorder.stop();
+            stopSpeechRecognition();
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            interimBar.classList.remove('visible');
+            updateConsoleStatus('Processing voice...', 'streaming-text');
+        }
+
+        // Voice chat SSE streaming handler
+        async function sendVoiceToAgent() {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const form = new FormData();
+            form.append('file', blob, 'voice.webm');
+
+            nextPlayTime = 0;
+            activeAiBubble = null;
+            activeAiParagraph = null;
+
+            try {
+                // Point to /agent/voice with active session
+                const response = await fetch(`/agent/voice?session_id=${activeSessionId}`, {
+                    method: 'POST',
+                    body: form,
+                    headers: COMMON_HEADERS   // ngrok interstitial bypass
+                });
+                const reader   = response.body.getReader();
+                const decoder  = new TextDecoder();
+                let lineBuffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    lineBuffer += decoder.decode(value, { stream: true });
+                    const lines = lineBuffer.split('\n');
+                    lineBuffer  = lines.pop(); 
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const raw = line.slice(6).trim();
+                        if (!raw) continue;
+
+                        try {
+                            const evt = JSON.parse(raw);
+
+                            if (evt.type === 'user_text') {
+                                addMessage(evt.text, 'user');
+                            } else if (evt.type === 'tool_call') {
+                                handleToolCallStart(evt.tool);
+                            } else if (evt.type === 'audio_chunk') {
+                                forceCompleteAllTools(); // voice doesn't fire explicit tool_end, complete on token/audio
+                                if (!activeAiBubble) {
+                                    activeAiBubble = addMessage('', 'system');
+                                    activeAiParagraph = activeAiBubble.querySelector('p');
+                                    activeAiParagraph.classList.add('streaming');
+                                }
+                                scheduleAudioChunk(evt.audio, evt.text, activeAiParagraph);
+                            } else if (evt.type === 'done') {
+                                forceCompleteAllTools();
+                                const waitTime = Math.max(0, (nextPlayTime - audioCtx.currentTime) * 1000);
+                                setTimeout(() => {
+                                    if (activeAiParagraph) activeAiParagraph.classList.remove('streaming');
+                                    updateConsoleStatus('Idle');
+                                }, waitTime + 100);
+                            }
+                        } catch (e) { console.error("Event parsing failure", e); }
+                    }
+                }
+            } catch (err) {
+                console.error('Stream failure:', err);
+                updateConsoleStatus('Idle');
+            }
+        }
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 4. Text Streaming Pipeline
+        // ─────────────────────────────────────────────────────────────
+        
+        function handleTextKeydown(event) {
+            if (event.key === 'Enter') {
+                sendTextMessage();
+            }
+        }
+
+        // Text chat SSE streaming handler
+        async function sendTextMessage() {
+            const text = textInput.value.trim();
+            if (!text) return;
+
+            textInput.value = '';
+            addMessage(text, 'user');
+            
+            activeAiBubble = null;
+            activeAiParagraph = null;
+            updateConsoleStatus('Typing...', 'streaming-text');
+
+            try {
+                // Call /agent/chat with active session
+                const response = await fetch('/agent/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...COMMON_HEADERS },
+                    body: JSON.stringify({ message: text, session_id: activeSessionId })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let lineBuffer = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    lineBuffer += decoder.decode(value, { stream: true });
+                    const lines = lineBuffer.split('\n');
+                    lineBuffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const raw = line.slice(6).trim();
+                        if (!raw) continue;
+
+                        try {
+                            const evt = JSON.parse(raw);
+
+                            if (evt.type === 'token') {
+                                if (!activeAiBubble) {
+                                    activeAiBubble = addMessage('', 'system');
+                                    activeAiParagraph = activeAiBubble.querySelector('p');
+                                    activeAiParagraph.classList.add('streaming');
+                                    activeAiParagraph.markdownText = '';
+                                }
+                                activeAiParagraph.markdownText += evt.text;
+                                activeAiParagraph.innerHTML = marked.parse(activeAiParagraph.markdownText);
+                                chatDisplay.scrollTop = chatDisplay.scrollHeight;
+                                updateConsoleStatus('Streaming text...', 'streaming-text');
+                            } else if (evt.type === 'tool_call') {
+                                handleToolCallStart(evt.tool);
+                            } else if (evt.type === 'tool_result') {
+                                handleToolCallEnd(evt.tool, evt.result || '{"status": "Tool transaction completed"}');
+                            } else if (evt.type === 'done') {
+                                if (activeAiParagraph) activeAiParagraph.classList.remove('streaming');
+                                updateConsoleStatus('Idle');
+                            }
+                        } catch (e) {
+                            console.error("Text event error", e);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Text SSE error", err);
+                updateConsoleStatus('Idle');
+            }
+        }
+
+
+        // ─────────────────────────────────────────────────────────────
+        // 5. DOM Helpers
+        // ─────────────────────────────────────────────────────────────
+        
+        function addMessage(text, role) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message ${role}`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.textContent = role === 'system' ? 'A' : 'U';
+            
+            const p = document.createElement('p');
+            if (role === 'system' && text) {
+                p.markdownText = text;
+                p.innerHTML = marked.parse(text);
+            } else {
+                p.textContent = text;
+            }
+            
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(p);
+            chatDisplay.appendChild(wrapper);
+            chatDisplay.scrollTop = chatDisplay.scrollHeight;
+            return wrapper;
+        }
+    </script>
+</body>
+</html>

@@ -5,14 +5,14 @@ import os
 from app.core.config import settings
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
-# ── URLs ──────────────────────────────────────────────────────────────────────
+# ── URLs
 # asyncpg driver for the application (async)
 ASYNC_DATABASE_URL = settings.DATABASE_URL
 
 # psycopg2 driver for Alembic migrations (sync)
 # SYNC_DATABASE_URL = ASYNC_DATABASE_URL.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
 
-# ── ASYNC ENGINE (used by FastAPI) ────────────────────────────────────────────
+# ── ASYNC ENGINE (used by FastAPI) 
 async_engine = create_async_engine(
     ASYNC_DATABASE_URL,
     echo=False,
@@ -27,7 +27,7 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
-# ── FastAPI dependency ─────────────────────────────────────────────────────────
+# ── FastAPI dependency 
 async def get_db():
     """Inject an async DB session into route handlers."""
     async with AsyncSessionLocal() as session:
