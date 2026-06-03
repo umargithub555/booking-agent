@@ -48,6 +48,11 @@ class MessageRole(str, enum.Enum):
     ASSISTANT = "assistant"
     TOOL      = "tool"
 
+class OrderStatus(str, enum.Enum):
+    PENDING   = "pending"
+    PREPARING = "preparing"
+    DELIVERED = "delivered"
+    CANCELLED = "cancelled"
 
 
 #  1. USERS
@@ -410,3 +415,52 @@ class Message(Base):
 
     def __repr__(self):
         return f"<Message(session={self.session_id}, role={self.role})>"
+
+
+#  13. DAILY MENU (Room Service / Food Ordering)
+
+class DailyMenu(Base):
+    __tablename__ = "daily_menus"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    hotel_id    = Column(UUID(as_uuid=True), ForeignKey("hotels.id", ondelete="CASCADE"), nullable=False, index=True)
+    menu_date   = Column(Date, nullable=False)
+    menu_data   = Column(JSONB, default={}, nullable=False)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    hotel       = relationship("Hotel")
+
+    __table_args__ = (
+        Index("uq_daily_menu_date", "hotel_id", "menu_date", unique=True),
+        Index("idx_daily_menu_date", "menu_date"),
+    )
+
+    def __repr__(self):
+        return f"<DailyMenu(hotel={self.hotel_id}, date={self.menu_date})>"
+
+
+#  14. ORDERS (Room Service)
+
+class Order(Base):
+    __tablename__ = "orders"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reservation_id  = Column(UUID(as_uuid=True), ForeignKey("reservations.id", ondelete="CASCADE"), nullable=False, index=True)
+    items           = Column(JSONB, default={}, nullable=False)
+    total_amount    = Column(Numeric(10, 2), nullable=False)
+    status          = Column(Enum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
+    special_notes   = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    reservation     = relationship("Reservation")
+
+    __table_args__ = (
+        Index("idx_orders_reservation", "reservation_id"),
+        Index("idx_orders_status", "status"),
+        CheckConstraint("total_amount >= 0", name="check_order_total"),
+    )
+
+    def __repr__(self):
+        return f"<Order(id={self.id}, status={self.status}, total={self.total_amount})>"
+
