@@ -20,9 +20,9 @@ load_dotenv()
 from app.agent.tools import ALL_TOOLS
 from app.agent.state import AgentState
 
-# ─────────────────────────────────────────────────────────────
+
 # LLM — points to Groq's OpenAI-compatible endpoint
-# ─────────────────────────────────────────────────────────────
+
 primary_llm = ChatOpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.getenv("GROQ_API_KEY"),
@@ -65,25 +65,33 @@ classifier_llm = ChatOpenAI(
     streaming=False
 )
 
-# ─────────────────────────────────────────────────────────────
 # System Prompt — drives the agent's persona and booking flow
-# ─────────────────────────────────────────────────────────────
+
 SYSTEM_PROMPT = """You are Alice, a warm and professional hotel booking assistant for LuxeStay.
 
-Your goal is to help users find and book the perfect hotel room through natural conversation.
+Your goal is to help users find and book the perfect hotel room, as well as handle room service food ordering through natural conversation.
 Keep responses short and concise. Do not repeat yourself.
 
 ## Your Workflow:
 1. **Discover Intent**: Greet the user and find out their destination, travel dates, and number of guests.
-2. **Search Hotels**: Use `search_hotels` with the city or country they mention. Only call this for new locations not already in your system banner under "Known Hotels".
-3. **Get Hotel Details**: If the user asks about room types, general pricing, amenities, or features of a hotel without specifying check-in/out dates, use `get_hotel_details` with the hotel_id from your "Known Hotels" cache.
-4. **Check Availability & Handle Full Bookings**:
+2. **Search All Hotels**: Use `search_all_hotels` to get a list of all hotels in all countries from the database. Use this when you can't find a hotel in the user's specified location or when the user asks for hotels all around the world.
+3. **Search Hotels**: Use `search_hotels` with the city or country they mention. Only call this for new locations not already in your system banner under "Known Hotels".
+4. **Get Hotel Details**: If the user asks about room types, general pricing, amenities, or features of a hotel without specifying check-in/out dates, use `get_hotel_details` with the hotel_id from your "Known Hotels" cache.
+5. **Check Availability & Handle Full Bookings**:
    - Once the user selects a hotel and provides check-in/check-out dates, use `search_available_rooms` with the hotel_id, dates, and guest count.
    - **Alternative Dates**: If `search_available_rooms` returns no results or indicates the hotel is fully booked for those dates, you MUST call `get_alternative_available_dates` with the hotel_id and check-in date. Present these alternative available dates clearly to the user so they can choose a different range.
-5. **Present Options**: Describe the available rooms clearly (type, price, features). Keep it concise.
-6. **Confirm Details**: Before booking, repeat back all details (dates, room, price) and ask for explicit confirmation.
-7. **Book**: Only call `create_reservation` after the user says YES. You must have: hotel_id, room_id, checkin_date, checkout_date, guest_count, and the guest's full name.
-8. **Confirm**: Share the confirmation code and a friendly summary.
+6. **Present Options**: Describe the available rooms clearly (type, price, features). Keep it concise.
+7. **Confirm Details**: Before booking, repeat back all details (dates, room, price) and ask for explicit confirmation.
+8. **Book**: Only call `create_reservation` after the user says YES. You must have: hotel_id, room_id, checkin_date, checkout_date, guest_count, and the guest's full name.
+9. **Confirm**: Share the confirmation code and a friendly summary.
+10. **In-Room Concierge & Room Service**:
+   - If the user has an active reservation, they can order food / room service.
+   - Ask for or verify their active `reservation_id`.
+   - Use `get_daily_menu` to fetch today's food menu for the hotel. Use the current date from the system banner.
+   - Present the menu (e.g. breakfast or dinner items and prices) clearly.
+   - Help the user build a draft order. Confirm the items and total price before ordering.
+   - Use `place_order` to finalize their room service order only after their explicit confirmation.
+   - Use `get_order_status` if they ask to check on an order using the order_id.
 
 ## CRITICAL GUARDS & RULES (To Prevent Loops & Hallucinations):
 - **USE CACHED HOTEL IDs**: If the user mentions a hotel that already appears under "Known Hotels" in your system banner, use that exact hotel_id directly. Do NOT call `search_hotels` again for the same location.
@@ -96,9 +104,9 @@ Keep responses short and concise. Do not repeat yourself.
 - **CANCELLATIONS**: If the user asks to cancel, call `get_reservation_details` first, then call `cancel_reservation` only after explicit confirmation from the user.
 """
 
-# ─────────────────────────────────────────────────────────────
+
 # Custom Workflow Nodes
-# ─────────────────────────────────────────────────────────────
+
 
 async def auth_check_node(state: AgentState) -> dict:
     """Security check node. Verifies user authentication details are loaded."""
@@ -113,18 +121,21 @@ async def auth_check_node(state: AgentState) -> dict:
     return {}
 
 
-# ─────────────────────────────────────────────────────────────
+
 # Classifier Prompt — determines if database/tool calls are needed
-# ─────────────────────────────────────────────────────────────
+
 CLASSIFY_PROMPT = """You are an intent classifier for a hotel booking assistant.
 Analyze the user's latest message and decide if we need to call a database tool.
-We have tools for: searching hotels by city/country, getting hotel details/pricing, checking room availability, creating bookings, and cancelling bookings.
+We have tools for: searching hotels by city/country, getting hotel details/pricing, checking room availability, creating bookings, cancelling bookings, checking food menus, placing food orders, and checking food order status.
 
 Respond with "TOOL" if the user's message is asking to:
 - Search for hotels, cities, countries, or destinations.
 - Check room availability, prices, dates, or guest counts.
 - Create, confirm, or modify a booking.
 - View, check, or cancel a reservation.
+- Ask about food options, daily menus, room service menus, or what's available to eat.
+- Order food, place a room service order, add food to their order, or specify meal items.
+- Check the status of a room service order.
 - Anything requiring live database queries.
 
 Respond with "CHITCHAT" ONLY if the message is:
@@ -229,6 +240,7 @@ async def state_extractor_node(state: AgentState) -> dict:
       - search_available_rooms: saves hotel_id/dates; resets room_id on hotel switch
       - create_reservation: saves all booking fields
       - cancel_reservation: saves reservation_id
+      - place_order       : clears draft_order on successful placement
     """
     updates = {}
     messages = state["messages"]
@@ -298,6 +310,10 @@ async def state_extractor_node(state: AgentState) -> dict:
             if "reservation_id" in payload:
                 updates["reservation_id"] = str(payload["reservation_id"])
 
+            # Food order placement success -> clear draft_order
+            if tm.name == "place_order" and payload.get("success") is True:
+                updates["draft_order"] = None
+
             # get_hotel_details result → cache hotel name + update focused hotel_name
             if "hotel_id" in payload and "name" in payload:
                 hotel_cache = dict(state.get("searched_hotels") or {})
@@ -319,9 +335,9 @@ async def state_extractor_node(state: AgentState) -> dict:
     return updates
 
 
-# ─────────────────────────────────────────────────────────────
+
 # Routing & Control Flow
-# ─────────────────────────────────────────────────────────────
+
 
 def route_auth(state: AgentState) -> Literal["agent", "__end__"]:
     """Routes execution to agent if authenticated, else terminates."""
@@ -346,9 +362,9 @@ def route_extractor(state: AgentState) -> Literal["agent", "__end__"]:
     return "__end__"
 
 
-# ─────────────────────────────────────────────────────────────
+
 # Build the Agent Graph Workflow
-# ─────────────────────────────────────────────────────────────
+
 
 workflow = StateGraph(AgentState)
 
