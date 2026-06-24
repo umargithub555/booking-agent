@@ -29,6 +29,8 @@ pip install fastapi uvicorn faster-whisper kokoro-onnx onnxruntime-gpu python-mu
 1.  Download and install [LM Studio](https://lmstudio.ai/).
 2.  Search for and download **`Any lightweight model`**.
 3.  Navigate to the **Local Server** tab, select the model, and **Start Server** on port `1234`.
+OR 
+Groq API
 
 ### 3. TTS Setup (Kokoro)
 1.  Create a `models/` directory in the root of this project.
@@ -41,7 +43,7 @@ pip install fastapi uvicorn faster-whisper kokoro-onnx onnxruntime-gpu python-mu
 
 1.  **Start the Backend**:
     ```powershell
-    python run.py
+    uvicorn main:app --reload
     ```
 2.  **Access the UI**:
     Open your browser and go to `http://localhost:8000`.
